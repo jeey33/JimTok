@@ -1,156 +1,117 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JiMToK</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JimTok - Transform your Crypto Dust</title>
+    <style>
+        /* Un petit style rapide pour que ce soit propre et lisible */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
 
-<style>
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background-color: #1e293b;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            max-width: 400px;
+        }
 
-body{
-    margin:0;
-    font-family:Arial, sans-serif;
-    background:#0d1117;
-    color:white;
-    text-align:center;
-}
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 10px;
+        }
 
-.container{
-    padding:40px 20px;
-}
+        p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
 
-.logo{
-    font-size:60px;
-    font-weight:bold;
-    margin-top:50px;
-    color:#00ffb3;
-    text-shadow:0 0 20px #00ffb3;
-}
+        .btn-connect {
+            background-color: #38bdf8;
+            color: #0f172a;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-top: 20px;
+        }
 
-.subtitle{
-    font-size:22px;
-    color:#999;
-    margin-top:10px;
-}
+        .btn-connect:hover {
+            background-color: #0ea5e9;
+            transform: scale(1.02);
+        }
 
-.card{
-    background:#161b22;
-    max-width:500px;
-    margin:50px auto;
-    padding:40px;
-    border-radius:25px;
-    box-shadow:0 0 30px rgba(0,255,179,0.15);
-}
-
-button{
-    background:#00ffb3;
-    color:black;
-    border:none;
-    padding:18px 30px;
-    font-size:18px;
-    border-radius:15px;
-    cursor:pointer;
-    margin-top:20px;
-    font-weight:bold;
-    transition:0.3s;
-}
-
-button:hover{
-    transform:scale(1.05);
-    background:white;
-}
-
-.wallet{
-    margin-top:25px;
-    font-size:18px;
-    color:#00ffb3;
-}
-
-.footer{
-    margin-top:60px;
-    color:#666;
-    font-size:14px;
-}
-
-.dust{
-    font-size:80px;
-    margin-top:20px;
-    animation:float 3s infinite ease-in-out;
-}
-
-@keyframes float{
-    0%{transform:translateY(0px);}
-    50%{transform:translateY(-15px);}
-    100%{transform:translateY(0px);}
-}
-
-</style>
+        #walletAddress {
+            margin-top: 15px;
+            font-family: monospace;
+            background-color: #0f172a;
+            padding: 8px;
+            border-radius: 6px;
+            color: #34d399;
+            display: none; /* Caché par défaut, affiché une fois connecté */
+        }
+    </style>
 </head>
-
 <body>
 
-<div class="container">
+    <div class="container">
+        <h1>JimTok</h1>
+        <p>Transformez votre poussière de crypto oubliée en un seul token communautaire simple.</p>
+        
+        <button id="connectButton" class="btn-connect">Connecter mon Wallet</button>
+        
+        <div id="walletAddress"></div>
+    </div>
 
-<div class="logo">
-JiMToK
-</div>
+    <script>
+        const connectButton = document.getElementById('connectButton');
+        const walletAddressDisplay = document.getElementById('walletAddress');
 
-<div class="subtitle">
-Turn crypto dust into value
-</div>
-
-<div class="dust">
-🧹
-</div>
-
-<div class="card">
-
-<h2>Clean Your Wallet</h2>
-
-<p>
-Millions of wallets contain useless tiny balances.
-JiMToK gives them a second life.
-</p>
-
-<button onclick="connectWallet()">
-Connect Wallet
-</button>
-
-<br>
-
-<button onclick="convertDust()">
-Convert Dust
-</button>
-
-<div class="wallet" id="walletStatus">
-Wallet not connected
-</div>
-
-</div>
-
-<div class="footer">
-JiMToK © 2026
-</div>
-
-</div>
-
-<script>
-
-function connectWallet(){
-
-    document.getElementById("walletStatus").innerHTML =
-    "Wallet Connected ✅";
-
-}
-
-function convertDust(){
-
-    document.getElementById("walletStatus").innerHTML =
-    "Dust converted to JiMToK 🚀";
-
-}
-
-</script>
+        connectButton.addEventListener('click', async () => {
+            // 1. Vérifier si un wallet (comme MetaMask) est installé dans le navigateur
+            if (typeof window.ethereum !== 'undefined') {
+                try {
+                    // 2. Demander au wallet l'autorisation de se connecter
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    
+                    // 3. Récupérer l'adresse publique du premier compte connecté
+                    const walletAddress = accounts[0];
+                    
+                    // 4. Raccourcir l'adresse pour l'affichage (ex: 0x1234...abcd)
+                    const shortAddress = walletAddress.substring(0, 6) + '...' + walletAddress.substring(walletAddress.length - 4);
+                    
+                    // 5. Mettre à jour l'interface graphique
+                    walletAddressDisplay.innerText = `Connecté : ${shortAddress}`;
+                    walletAddressDisplay.style.display = 'block'; // Afficher le bloc d'adresse
+                    connectButton.innerText = "Wallet Connecté 🎉";
+                    connectButton.style.backgroundColor = "#34d399"; // Change le bouton en vert
+                    
+                } catch (error) {
+                    console.error("L'utilisateur a refusé la connexion", error);
+                    alert("Connexion refusée par l'utilisateur.");
+                }
+            } else {
+                // Si aucune extension de wallet n'est détectée
+                alert("Aucun wallet compatible détecté. Veuillez installer MetaMask ou une extension similaire !");
+                window.open('https://metamask.io/download/', '_blank');
+            }
+        });
+    </script>
 
 </body>
 </html>
