@@ -133,26 +133,35 @@ connectButton.addEventListener('click', async () => {
             let totalTokensFound = 0;
             let walletTotalValueUSD = 0;
 
-            function addTokenToUI(name, symbol, networkName, balance, usdValue) {
-                totalTokensFound++;
-                const tokenItem = document.createElement('div');
-                tokenItem.className = 'token-item';
-                
-                // On affiche avec 2 décimales pour que ce soit lisible en dollars/euros réels (ex: $4.15)
-                const displayValue = usdValue > 0 ? `$${usdValue.toFixed(2)}` : "$0.00";
+           function addTokenToUI(name, symbol, networkName, balance, usdValue) {
+    totalTokensFound++;
+    const tokenItem = document.createElement('div');
+    tokenItem.className = 'token-item';
+    
+    let displayValue = "$0.000000";
 
-                tokenItem.innerHTML = `
-                    <div class="token-info">
-                        <span class="token-name">${name}</span>
-                        <span class="token-symbol">${symbol} <small style="color:#64748b; font-size:11px;">(${networkName})</small></span>
-                    </div>
-                    <div style="text-align: right; display: flex; flex-direction: column;">
-                        <span class="token-balance">${balance}</span>
-                        <span style="color: #34d399; font-size: 0.85rem; font-family: monospace; font-weight: bold;">${displayValue}</span>
-                    </div>
-                `;
-                tokenList.appendChild(tokenItem);
-            }
+    if (usdValue > 0) {
+        if (usdValue >= 1) {
+            // Pour les montants principaux (ex: tes 4.15€ d'ETH), on garde 2 décimales propres
+            displayValue = `$${usdValue.toFixed(2)}`;
+        } else {
+            // Pour les micro-miettes en dessous de 1$, on force 6 décimales pour voir les centimes !
+            displayValue = `$${usdValue.toFixed(6)}`;
+        }
+    }
+
+    tokenItem.innerHTML = `
+        <div class="token-info">
+            <span class="token-name">${name}</span>
+            <span class="token-symbol">${symbol} <small style="color:#64748b; font-size:11px;">(${networkName})</small></span>
+        </div>
+        <div style="text-align: right; display: flex; flex-direction: column;">
+            <span class="token-balance">${balance}</span>
+            <span style="color: #34d399; font-size: 0.85rem; font-family: monospace; font-weight: bold;">${displayValue}</span>
+        </div>
+    `;
+    tokenList.appendChild(tokenItem);
+}
 
             for (const network of networks) {
                 try {
