@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JimTok - Transform your Crypto Dust</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+    
     <style>
-        /* Un petit style rapide pour que ce soit propre et lisible */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #0f172a;
@@ -25,6 +26,7 @@
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
             max-width: 400px;
+            width: 90%;
         }
 
         h1 {
@@ -49,6 +51,7 @@
             cursor: pointer;
             transition: all 0.2s ease;
             margin-top: 20px;
+            width: 100%;
         }
 
         .btn-connect:hover {
@@ -56,14 +59,29 @@
             transform: scale(1.02);
         }
 
-        #walletAddress {
-            margin-top: 15px;
-            font-family: monospace;
+        .info-box {
+            margin-top: 20px;
             background-color: #0f172a;
-            padding: 8px;
-            border-radius: 6px;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            display: none; /* Caché au début */
+            text-align: left;
+        }
+
+        .info-line {
+            margin: 8px 0;
+            font-size: 0.9rem;
+        }
+
+        .label {
+            color: #64748b;
+            font-weight: bold;
+        }
+
+        .value {
+            font-family: monospace;
             color: #34d399;
-            display: none; /* Caché par défaut, affiché une fois connecté */
         }
     </style>
 </head>
@@ -75,39 +93,65 @@
         
         <button id="connectButton" class="btn-connect">Connecter mon Wallet</button>
         
-        <div id="walletAddress"></div>
+        <div id="infoBox" class="info-box">
+            <div class="info-line">
+                <span class="label">Adresse :</span>
+                <span id="walletAddress" class="value">-</span>
+            </div>
+            <div class="info-line">
+                <span class="label">Solde principal :</span>
+                <span id="walletBalance" class="value">-</span>
+            </div>
+        </div>
     </div>
 
     <script>
         const connectButton = document.getElementById('connectButton');
+        const infoBox = document.getElementById('infoBox');
         const walletAddressDisplay = document.getElementById('walletAddress');
+        const walletBalanceDisplay = document.getElementById('walletBalance');
 
         connectButton.addEventListener('click', async () => {
-            // 1. Vérifier si un wallet (comme MetaMask) est installé dans le navigateur
+            // 1. Vérifier si MetaMask (window.ethereum) est présent
             if (typeof window.ethereum !== 'undefined') {
                 try {
-                    // 2. Demander au wallet l'autorisation de se connecter
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    // 2. Initialiser Ethers.js avec le wallet du navigateur
+                    const provider = new ethers.BrowserProvider(window.ethereum);
                     
-                    // 3. Récupérer l'adresse publique du premier compte connecté
-                    const walletAddress = accounts[0];
+                    // 3. Demander la connexion au wallet
+                    const signer = await provider.getSigner();
+                    const address = await signer.getAddress();
                     
-                    // 4. Raccourcir l'adresse pour l'affichage (ex: 0x1234...abcd)
-                    const shortAddress = walletAddress.substring(0, 6) + '...' + walletAddress.substring(walletAddress.length - 4);
+                    // 4. Récupérer le solde de la monnaie native (ETH, MATIC etc. selon le réseau)
+                    const balanceBigInt = await provider.getBalance(address);
+                    // On convertit le solde (qui est en Wei) en format lisible (ex: 0.015 ETH)
+                    const balanceFormatted = ethers.formatEther(balanceBigInt);
+                    // On garde 4 chiffres après la virgule pour faire propre
+                    const balanceFixed = parseFloat(balanceFormatted).toFixed(4);
+
+                    // 5. Récupérer le nom de la monnaie selon le réseau connecté
+                    const network = await provider.getNetwork();
+                    let cryptoName = "ETH"; // Par défaut
+                    if (network.chainId === 137n) cryptoName = "MATIC";
+                    if (network.chainId === 56n) cryptoName = "BNB";
+
+                    // 6. Mettre à jour l'affichage
+                    const shortAddress = address.substring(0, 6) + '...' + address.substring(address.length - 4);
+                    walletAddressDisplay.innerText = shortAddress;
+                    walletBalanceDisplay.innerText = `${balanceFixed} ${cryptoName}`;
                     
-                    // 5. Mettre à jour l'interface graphique
-                    walletAddressDisplay.innerText = `Connecté : ${shortAddress}`;
-                    walletAddressDisplay.style.display = 'block'; // Afficher le bloc d'adresse
+                    // Afficher la boîte d'infos et changer le bouton
+                    infoBox.style.display = 'block';
                     connectButton.innerText = "Wallet Connecté 🎉";
-                    connectButton.style.backgroundColor = "#34d399"; // Change le bouton en vert
-                    
+                    connectButton.style.backgroundColor = "#34d399";
+                    connectButton.disabled = true; // Désactive le bouton puisqu'on est connecté
+
                 } catch (error) {
-                    console.error("L'utilisateur a refusé la connexion", error);
-                    alert("Connexion refusée par l'utilisateur.");
+                    console.error("Erreur lors de la connexion :", error);
+                    alert("La connexion a échoué ou a été refusée.");
                 }
             } else {
-                // Si aucune extension de wallet n'est détectée
-                alert("Aucun wallet compatible détecté. Veuillez installer MetaMask ou une extension similaire !");
+                alert("Aucun wallet compatible détecté. Veuillez utiliser l'application MetaMask !");
                 window.open('https://metamask.io/download/', '_blank');
             }
         });
