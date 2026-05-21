@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JimTok - Transform your Crypto Dust</title>
+    <title>JimTok - Dust Scanner</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
     
     <style>
@@ -15,8 +15,10 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
         }
 
         .container {
@@ -25,20 +27,12 @@
             background-color: #1e293b;
             border-radius: 16px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            max-width: 400px;
-            width: 90%;
+            max-width: 450px;
+            width: 100%;
         }
 
-        h1 {
-            color: #38bdf8;
-            margin-bottom: 10px;
-        }
-
-        p {
-            color: #94a3b8;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
+        h1 { color: #38bdf8; margin-bottom: 10px; }
+        p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }
 
         .btn-connect {
             background-color: #38bdf8;
@@ -50,112 +44,138 @@
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-top: 20px;
             width: 100%;
-        }
-
-        .btn-connect:hover {
-            background-color: #0ea5e9;
-            transform: scale(1.02);
-        }
-
-        .info-box {
             margin-top: 20px;
-            background-color: #0f172a;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            display: none; /* Caché au début */
+        }
+
+        .btn-connect:hover { background-color: #0ea5e9; transform: scale(1.02); }
+
+        .dust-section {
+            margin-top: 25px;
             text-align: left;
+            display: none;
         }
 
-        .info-line {
-            margin: 8px 0;
-            font-size: 0.9rem;
+        h3 { color: #94a3b8; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+
+        .token-list {
+            max-height: 250px;
+            overflow-y: auto;
+            margin-top: 10px;
         }
 
-        .label {
-            color: #64748b;
-            font-weight: bold;
+        .token-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #0f172a;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #1e293b;
         }
 
-        .value {
-            font-family: monospace;
-            color: #34d399;
-        }
+        .token-info { display: flex; flex-direction: column; }
+        .token-name { font-weight: bold; color: #f1f5f9; }
+        .token-symbol { font-size: 0.8rem; color: #64748b; }
+        .token-balance { font-family: monospace; color: #34d399; font-weight: bold; }
+        
+        .loading { text-align: center; color: #38bdf8; font-style: italic; margin-top: 15px; display: none; }
     </style>
 </head>
 <body>
 
     <div class="container">
         <h1>JimTok</h1>
-        <p>Transformez votre poussière de crypto oubliée en un seul token communautaire simple.</p>
+        <p>Aspirateur de Crypto Dust. Connectez votre wallet pour scanner vos balances oubliées.</p>
         
         <button id="connectButton" class="btn-connect">Connecter mon Wallet</button>
+        <div id="loadingText" class="loading">Scan du wallet en cours (aspiration de la poussière)...</div>
         
-        <div id="infoBox" class="info-box">
-            <div class="info-line">
-                <span class="label">Adresse :</span>
-                <span id="walletAddress" class="value">-</span>
-            </div>
-            <div class="info-line">
-                <span class="label">Solde principal :</span>
-                <span id="walletBalance" class="value">-</span>
-            </div>
+        <div id="dustSection" class="dust-section">
+            <h3>Poussières détectées :</h3>
+            <div id="tokenList" class="token-list">
+                </div>
         </div>
     </div>
 
     <script>
+        // Configurer ta clé API ici :
+        const MORALIS_API_KEY = "METS_TA_CLE_API_MORALIS_ICI";
+
         const connectButton = document.getElementById('connectButton');
-        const infoBox = document.getElementById('infoBox');
-        const walletAddressDisplay = document.getElementById('walletAddress');
-        const walletBalanceDisplay = document.getElementById('walletBalance');
+        const dustSection = document.getElementById('dustSection');
+        const tokenList = document.getElementById('tokenList');
+        const loadingText = document.getElementById('loadingText');
 
         connectButton.addEventListener('click', async () => {
-            // 1. Vérifier si MetaMask (window.ethereum) est présent
             if (typeof window.ethereum !== 'undefined') {
                 try {
-                    // 2. Initialiser Ethers.js avec le wallet du navigateur
+                    // 1. Connexion au Wallet
                     const provider = new ethers.BrowserProvider(window.ethereum);
-                    
-                    // 3. Demander la connexion au wallet
                     const signer = await provider.getSigner();
-                    const address = await signer.getAddress();
+                    const walletAddress = await signer.getAddress();
                     
-                    // 4. Récupérer le solde de la monnaie native (ETH, MATIC etc. selon le réseau)
-                    const balanceBigInt = await provider.getBalance(address);
-                    // On convertit le solde (qui est en Wei) en format lisible (ex: 0.015 ETH)
-                    const balanceFormatted = ethers.formatEther(balanceBigInt);
-                    // On garde 4 chiffres après la virgule pour faire propre
-                    const balanceFixed = parseFloat(balanceFormatted).toFixed(4);
-
-                    // 5. Récupérer le nom de la monnaie selon le réseau connecté
-                    const network = await provider.getNetwork();
-                    let cryptoName = "ETH"; // Par défaut
-                    if (network.chainId === 137n) cryptoName = "MATIC";
-                    if (network.chainId === 56n) cryptoName = "BNB";
-
-                    // 6. Mettre à jour l'affichage
-                    const shortAddress = address.substring(0, 6) + '...' + address.substring(address.length - 4);
-                    walletAddressDisplay.innerText = shortAddress;
-                    walletBalanceDisplay.innerText = `${balanceFixed} ${cryptoName}`;
-                    
-                    // Afficher la boîte d'infos et changer le bouton
-                    infoBox.style.display = 'block';
                     connectButton.innerText = "Wallet Connecté 🎉";
                     connectButton.style.backgroundColor = "#34d399";
-                    connectButton.disabled = true; // Désactive le bouton puisqu'on est connecté
+                    connectButton.disabled = true;
+                    loadingText.style.display = "block";
+
+                    // 2. Appel à l'API de Moralis pour récupérer TOUS les tokens (ici sur le réseau Ethereum 'eth')
+                    // Note: Tu peux remplacer 'eth' par 'polygon' ou 'bsc' ou 'base' selon ton wallet !
+                    const chain = "eth"; 
+                    const url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${chain}`;
+
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: {
+                            "accept": "application/json",
+                            "x-api-key": MORALIS_API_KEY
+                        }
+                    });
+
+                    const tokens = await response.json();
+                    loadingText.style.display = "none";
+                    dustSection.style.display = "block";
+                    tokenList.innerHTML = ""; // On vide la liste au cas où
+
+                    if (tokens.length === 0) {
+                        tokenList.innerHTML = "<p style='text-align:center;'>Aucune poussière de token ERC-20 trouvée.</p>";
+                        return;
+                    }
+
+                    // 3. Boucle pour afficher chaque monnaie trouvée
+                    tokens.forEach(token => {
+                        // Moralis renvoie le solde en "brut", il faut l'ajuster avec les décimales du jeton
+                        const rawBalance = BigInt(token.balance);
+                        const decimals = token.decimals;
+                        const formattedBalance = ethers.formatUnits(rawBalance, decimals);
+                        const roundedBalance = parseFloat(formattedBalance).toFixed(4);
+
+                        // On n'affiche le jeton que si le solde est supérieur à 0
+                        if (parseFloat(formattedBalance) > 0) {
+                            const tokenItem = document.createElement('div');
+                            tokenItem.className = 'token-item';
+                            tokenItem.innerHTML = `
+                                <div class="token-info">
+                                    <span class="token-name">${token.name}</span>
+                                    <span class="token-symbol">${token.symbol}</span>
+                                </div>
+                                <span class="token-balance">${roundedBalance}</span>
+                            `;
+                            tokenList.appendChild(tokenItem);
+                        }
+                    });
 
                 } catch (error) {
-                    console.error("Erreur lors de la connexion :", error);
-                    alert("La connexion a échoué ou a été refusée.");
+                    console.error("Erreur :", error);
+                    loadingText.style.display = "none";
+                    alert("Une erreur est survenue lors du scan.");
                 }
             } else {
-                alert("Aucun wallet compatible détecté. Veuillez utiliser l'application MetaMask !");
-                window.open('https://metamask.io/download/', '_blank');
+                alert("Veuillez installer ou utiliser MetaMask !");
             }
         });
     </script>
-
 </body>
 </html>
