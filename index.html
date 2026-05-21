@@ -111,7 +111,6 @@ const loadingText = document.getElementById('loadingText');
 connectButton.addEventListener('click', async () => {
     if (typeof window.ethereum !== 'undefined') {
         try {
-            // 1. Connexion au Wallet
             const provider = new ethers.BrowserProvider(window.ethereum);
             const signer = await provider.getSigner();
             const walletAddress = await signer.getAddress();
@@ -120,30 +119,27 @@ connectButton.addEventListener('click', async () => {
             connectButton.style.backgroundColor = "#34d399";
             connectButton.disabled = true;
             loadingText.style.display = "block";
-            tokenList.innerHTML = ""; // On vide la liste
+            tokenList.innerHTML = ""; 
 
-            // 2. Liste des réseaux
             const networks = [
-                { id: "eth", name: "Ethereum", nativeSymbol: "ETH" },
-                { id: "polygon", name: "Polygon", nativeSymbol: "POL" },
-                { id: "bsc", name: "Binance Smart Chain", nativeSymbol: "BNB" },
-                { id: "base", name: "Base", nativeSymbol: "ETH" },
-                { id: "arbitrum", name: "Arbitrum", nativeSymbol: "ETH" },
-                { id: "optimism", name: "Optimism", nativeSymbol: "ETH" }
+                { id: "eth", name: "Ethereum", nativeSymbol: "ETH", defaultPrice: 3200 },
+                { id: "polygon", name: "Polygon", nativeSymbol: "POL", defaultPrice: 0.60 },
+                { id: "bsc", name: "Binance Smart Chain", nativeSymbol: "BNB", defaultPrice: 580 },
+                { id: "base", name: "Base", nativeSymbol: "ETH", defaultPrice: 3200 },
+                { id: "arbitrum", name: "Arbitrum", nativeSymbol: "ETH", defaultPrice: 3200 },
+                { id: "optimism", name: "Optimism", nativeSymbol: "ETH", defaultPrice: 3200 }
             ];
 
             let totalTokensFound = 0;
-            let walletTotalValueUSD = 0; // Cumul précis pour le total global
+            let walletTotalValueUSD = 0;
 
-            // Fonction utilitaire pour ajouter une ligne dans l'interface avec le prix précis
             function addTokenToUI(name, symbol, networkName, balance, usdValue) {
                 totalTokensFound++;
                 const tokenItem = document.createElement('div');
                 tokenItem.className = 'token-item';
                 
-                // CORRECTION ICI : On utilise .toFixed(4) au lieu de (2) pour voir les fractions de centimes !
-                // Si la valeur est vraiment minuscule mais supérieure à 0, on affiche 4 décimales.
-                const displayValue = usdValue > 0 ? `$${usdValue.toFixed(4)}` : "$0.0000";
+                // On affiche avec 2 décimales pour que ce soit lisible en dollars/euros réels (ex: $4.15)
+                const displayValue = usdValue > 0 ? `$${usdValue.toFixed(2)}` : "$0.00";
 
                 tokenItem.innerHTML = `
                     <div class="token-info">
@@ -152,13 +148,12 @@ connectButton.addEventListener('click', async () => {
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column;">
                         <span class="token-balance">${balance}</span>
-                        <span style="color: #94a3b8; font-size: 0.85rem; font-family: monospace;">${displayValue}</span>
+                        <span style="color: #34d399; font-size: 0.85rem; font-family: monospace; font-weight: bold;">${displayValue}</span>
                     </div>
                 `;
                 tokenList.appendChild(tokenItem);
             }
 
-            // 3. Boucle principale sur tous les réseaux
             for (const network of networks) {
                 try {
                     // --- PARTIE A : MONNAIE NATIVE ---
@@ -172,16 +167,19 @@ connectButton.addEventListener('click', async () => {
                         const nativeData = await nativeResponse.json();
                         const nativeBalance = BigInt(nativeData.balance);
                         const formattedNative = ethers.formatUnits(nativeBalance, 18);
-                        
-                        // On garde 6 décimales pour le solde crypto pour ne rien rater
-                        const roundedNative = parseFloat(formattedNative).toFixed(6);
+                        const numNative = parseFloat(formattedNative);
 
-                        if (parseFloat(formattedNative) > 0) {
-                            const nativePriceUSD = nativeData.usd_price || 0;
-                            const totalRowValueUSD = parseFloat(formattedNative) * nativePriceUSD;
-                            walletTotalValueUSD += totalRowValueUSD; // Ajout mathématique ultra-précis
+                        if (numNative > 0) {
+                            // SÉCURITÉ : Si Moralis renvoie 0 ou null pour le prix, on prend notre prix par défaut
+                            let nativePriceUSD = nativeData.usd_price || nativeData.price_usd || 0;
+                            if (nativePriceUSD === 0) {
+                                nativePriceUSD = network.defaultPrice;
+                            }
+                            
+                            const totalRowValueUSD = numNative * nativePriceUSD;
+                            walletTotalValueUSD += totalRowValueUSD;
 
-                            addTokenToUI(network.name + " Native", network.nativeSymbol, network.name, roundedNative, totalRowValueUSD);
+                            addTokenToUI(network.name + " Native", network.nativeSymbol, network.name, numNative.toFixed(6), totalRowValueUSD);
                         }
                     }
 
@@ -199,14 +197,14 @@ connectButton.addEventListener('click', async () => {
                             const rawBalance = BigInt(token.balance);
                             const decimals = token.decimals;
                             const formattedBalance = ethers.formatUnits(rawBalance, decimals);
-                            const roundedBalance = parseFloat(formattedBalance).toFixed(6);
+                            const numToken = parseFloat(formattedBalance);
 
-                            if (parseFloat(formattedBalance) > 0) {
+                            if (numToken > 0) {
                                 const tokenPriceUSD = token.usd_price || 0;
-                                const totalRowValueUSD = parseFloat(formattedBalance) * tokenPriceUSD;
-                                walletTotalValueUSD += totalRowValueUSD; // Ajout mathématique ultra-précis
+                                const totalRowValueUSD = numToken * tokenPriceUSD;
+                                walletTotalValueUSD += totalRowValueUSD;
 
-                                addTokenToUI(token.name, token.symbol, network.name, roundedBalance, totalRowValueUSD);
+                                addTokenToUI(token.name, token.symbol, network.name, numToken.toFixed(4), totalRowValueUSD);
                             }
                         });
                     }
@@ -216,15 +214,12 @@ connectButton.addEventListener('click', async () => {
                 }
             }
 
-            // 4. Fin de l'aspiration globale
             loadingText.style.display = "none";
             dustSection.style.display = "block";
 
             if (totalTokensFound === 0) {
                 tokenList.innerHTML = "<p style='text-align:center; color:#94a3b8;'>L'aspirateur est passé... aucune poussière trouvée.</p>";
             } else {
-                // On affiche le grand total en haut. Comme on a additionné les valeurs brutes sans les arrondir avant,
-                // le résultat final affichera enfin tes précieux dollars cumulés (ex: $4.12)
                 const totalDiv = document.createElement('div');
                 totalDiv.style.cssText = "text-align:center; margin-bottom:15px; padding:10px; background:#0ea5e922; border-radius:8px; border:1px dashed #0ea5e9; font-weight:bold; color:#38bdf8; font-size:1.1rem;";
                 totalDiv.innerHTML = `Valeur totale de votre poussière : $${walletTotalValueUSD.toFixed(2)}`;
