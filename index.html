@@ -104,28 +104,42 @@
         const MORALIS_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Ijk1YjcyOTliLTYwMTQtNDNlOC05MDNmLWYwNWJkZjVmMWQxYyIsIm9yZ0lkIjoiNTE2OTI5IiwidXNlcklkIjoiNTMxOTg2IiwidHlwZUlkIjoiZTg3Njg4YjctYmQ3NS00OTI5LTg0NjctMDRlNGZmNWRkZTUzIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzkzNTIwNzgsImV4cCI6NDkzNTExMjA3OH0.G6s_KeUqXR8y2xH4wvK9E__fHr7-WHjgT05wapVPb2o";
 
         const connectButton = document.getElementById('connectButton');
-        const dustSection = document.getElementById('dustSection');
-        const tokenList = document.getElementById('tokenList');
-        const loadingText = document.getElementById('loadingText');
+const dustSection = document.getElementById('dustSection');
+const tokenList = document.getElementById('tokenList');
+const loadingText = document.getElementById('loadingText');
 
-        connectButton.addEventListener('click', async () => {
-            if (typeof window.ethereum !== 'undefined') {
+connectButton.addEventListener('click', async () => {
+    if (typeof window.ethereum !== 'undefined') {
+        try {
+            // 1. Connexion au Wallet de l'utilisateur
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const signer = await provider.getSigner();
+            const walletAddress = await signer.getAddress();
+            
+            connectButton.innerText = "Wallet Connecté 🎉";
+            connectButton.style.backgroundColor = "#34d399";
+            connectButton.disabled = true;
+            loadingText.style.display = "block";
+            tokenList.innerHTML = ""; // On vide la liste
+
+            // 2. Liste des réseaux que l'on veut aspirer d'un coup
+            // Chaque réseau est défini par son identifiant Moralis et son nom d'affichage
+            const networks = [
+                { id: "eth", name: "Ethereum" },
+                { id: "polygon", name: "Polygon" },
+                { id: "bsc", name: "Binance Smart Chain" },
+                { id: "base", name: "Base" },
+                { id: "arbitrum", name: "Arbitrum" },
+                { id: "optimism", name: "Optimism" }
+            ];
+
+            let totalTokensFound = 0;
+
+            // 3. On lance le scan en boucle sur toutes les blockchains
+            for (const network of networks) {
                 try {
-                    // 1. Connexion au Wallet
-                    const provider = new ethers.BrowserProvider(window.ethereum);
-                    const signer = await provider.getSigner();
-                    const walletAddress = await signer.getAddress();
+                    const url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${network.id}`;
                     
-                    connectButton.innerText = "Wallet Connecté 🎉";
-                    connectButton.style.backgroundColor = "#34d399";
-                    connectButton.disabled = true;
-                    loadingText.style.display = "block";
-
-                    // 2. Appel à l'API de Moralis pour récupérer TOUS les tokens (ici sur le réseau Ethereum 'eth')
-                    // Note: Tu peux remplacer 'eth' par 'polygon' ou 'bsc' ou 'base' selon ton wallet !
-                    const chain = "eth"; 
-                    const url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${chain}`;
-
                     const response = await fetch(url, {
                         method: "GET",
                         headers: {
@@ -134,32 +148,28 @@
                         }
                     });
 
+                    if (!response.ok) continue; // Si un réseau bug, on passe au suivant
+
                     const tokens = await response.json();
-                    loadingText.style.display = "none";
-                    dustSection.style.display = "block";
-                    tokenList.innerHTML = ""; // On vide la liste au cas où
 
-                    if (tokens.length === 0) {
-                        tokenList.innerHTML = "<p style='text-align:center;'>Aucune poussière de token ERC-20 trouvée.</p>";
-                        return;
-                    }
-
-                    // 3. Boucle pour afficher chaque monnaie trouvée
+                    // 4. On traite les tokens trouvés sur ce réseau spécifique
                     tokens.forEach(token => {
-                        // Moralis renvoie le solde en "brut", il faut l'ajuster avec les décimales du jeton
                         const rawBalance = BigInt(token.balance);
                         const decimals = token.decimals;
                         const formattedBalance = ethers.formatUnits(rawBalance, decimals);
                         const roundedBalance = parseFloat(formattedBalance).toFixed(4);
 
-                        // On n'affiche le jeton que si le solde est supérieur à 0
+                        // On n'affiche que si l'utilisateur possède réellement de la poussière (> 0)
                         if (parseFloat(formattedBalance) > 0) {
+                            totalTokensFound++;
+                            
+                            // Création de l'élément visuel pour la liste
                             const tokenItem = document.createElement('div');
                             tokenItem.className = 'token-item';
                             tokenItem.innerHTML = `
                                 <div class="token-info">
                                     <span class="token-name">${token.name}</span>
-                                    <span class="token-symbol">${token.symbol}</span>
+                                    <span class="token-symbol">${token.symbol} <small style="color:#64748b; font-size:11px;">(${network.name})</small></span>
                                 </div>
                                 <span class="token-balance">${roundedBalance}</span>
                             `;
@@ -167,15 +177,28 @@
                         }
                     });
 
-                } catch (error) {
-                    console.error("Erreur :", error);
-                    loadingText.style.display = "none";
-                    alert("Une erreur est survenue lors du scan.");
+                } catch (netError) {
+                    console.error(`Erreur lors du scan du réseau ${network.name}:`, netError);
                 }
-            } else {
-                alert("Veuillez installer ou utiliser MetaMask !");
             }
-        });
+
+            // 5. Fin du chargement et affichage du résultat de l'aspiration
+            loadingText.style.display = "none";
+            dustSection.style.display = "block";
+
+            if (totalTokensFound === 0) {
+                tokenList.innerHTML = "<p style='text-align:center; color:#94a3b8;'>L'aspirateur est passé... aucune poussière trouvée sur vos réseaux !</p>";
+            }
+
+        } catch (error) {
+            console.error("Erreur générale :", error);
+            loadingText.style.display = "none";
+            alert("Une erreur est survenue lors de l'aspiration multi-chaînes.");
+        }
+    } else {
+        alert("Veuillez installer ou utiliser MetaMask !");
+    }
+});
     </script>
 </body>
 </html>
