@@ -133,21 +133,26 @@ connectButton.addEventListener('click', async () => {
             let totalTokensFound = 0;
             let walletTotalValueUSD = 0;
 
-           function addTokenToUI(name, symbol, networkName, balance, usdValue) {
+function addTokenToUI(name, symbol, networkName, balance, usdValue) {
     totalTokensFound++;
     const tokenItem = document.createElement('div');
     tokenItem.className = 'token-item';
     
-    let displayValue = "$0.000000";
+    let displayValue = "";
+    const parsedBalance = parseFloat(balance);
 
     if (usdValue > 0) {
         if (usdValue >= 1) {
-            // Pour les montants principaux (ex: tes 4.15€ d'ETH), on garde 2 décimales propres
             displayValue = `$${usdValue.toFixed(2)}`;
         } else {
-            // Pour les micro-miettes en dessous de 1$, on force 6 décimales pour voir les centimes !
-            displayValue = `$${usdValue.toFixed(6)}`;
+            displayValue = `$${usdValue.toFixed(4)}`;
         }
+    } else if (parsedBalance > 0 && usdValue === 0) {
+        // CORRECTION : Si tu as des jetons mais que Moralis ne connaît pas le prix (ex: Mind Of Pepe)
+        // On affiche une estimation symbolique pour la poussière au lieu d'un faux 0
+        displayValue = "<span style='color:#64748b; font-size:0.8rem;'>Micro-poussière</span>";
+    } else {
+        displayValue = "$0.00";
     }
 
     tokenItem.innerHTML = `
