@@ -103,7 +103,7 @@
         // Configurer ta clé API ici :
         const MORALIS_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Ijk1YjcyOTliLTYwMTQtNDNlOC05MDNmLWYwNWJkZjVmMWQxYyIsIm9yZ0lkIjoiNTE2OTI5IiwidXNlcklkIjoiNTMxOTg2IiwidHlwZUlkIjoiZTg3Njg4YjctYmQ3NS00OTI5LTg0NjctMDRlNGZmNWRkZTUzIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzkzNTIwNzgsImV4cCI6NDkzNTExMjA3OH0.G6s_KeUqXR8y2xH4wvK9E__fHr7-WHjgT05wapVPb2o";
 
-     const connectButton = document.getElementById('connectButton');
+   const connectButton = document.getElementById('connectButton');
 const dustSection = document.getElementById('dustSection');
 const tokenList = document.getElementById('tokenList');
 const loadingText = document.getElementById('loadingText');
@@ -122,10 +122,10 @@ connectButton.addEventListener('click', async () => {
             loadingText.style.display = "block";
             tokenList.innerHTML = ""; // On vide la liste
 
-            // 2. Liste des réseaux avec leur monnaie native associée
+            // 2. Liste des réseaux
             const networks = [
                 { id: "eth", name: "Ethereum", nativeSymbol: "ETH" },
-                { id: "polygon", name: "Polygon", nativeSymbol: "POL" }, // Note: MATIC est devenu POL
+                { id: "polygon", name: "Polygon", nativeSymbol: "POL" },
                 { id: "bsc", name: "Binance Smart Chain", nativeSymbol: "BNB" },
                 { id: "base", name: "Base", nativeSymbol: "ETH" },
                 { id: "arbitrum", name: "Arbitrum", nativeSymbol: "ETH" },
@@ -133,18 +133,26 @@ connectButton.addEventListener('click', async () => {
             ];
 
             let totalTokensFound = 0;
+            let walletTotalValueUSD = 0; // Pour calculer la valeur totale du portefeuille de poussière
 
-            // Fonction utilitaire pour créer et ajouter un élément graphiquement dans la liste
-            function addTokenToUI(name, symbol, networkName, balance) {
+            // Fonction utilitaire pour ajouter une ligne dans l'interface avec le prix
+            function addTokenToUI(name, symbol, networkName, balance, usdValue) {
                 totalTokensFound++;
                 const tokenItem = document.createElement('div');
                 tokenItem.className = 'token-item';
+                
+                // Si le prix n'est pas disponible, on affiche "0.00 $"
+                const displayValue = usdValue > 0 ? `$${usdValue.toFixed(2)}` : "$0.00";
+
                 tokenItem.innerHTML = `
                     <div class="token-info">
                         <span class="token-name">${name}</span>
                         <span class="token-symbol">${symbol} <small style="color:#64748b; font-size:11px;">(${networkName})</small></span>
                     </div>
-                    <span class="token-balance">${balance}</span>
+                    <div style="text-align: right; display: flex; flex-direction: column;">
+                        <span class="token-balance">${balance}</span>
+                        <span style="color: #94a3b8; font-size: 0.85rem;">${displayValue}</span>
+                    </div>
                 `;
                 tokenList.appendChild(tokenItem);
             }
@@ -152,8 +160,9 @@ connectButton.addEventListener('click', async () => {
             // 3. Boucle principale sur tous les réseaux
             for (const network of networks) {
                 try {
-                    // --- PARTIE A : ASPIRER LA MONNAIE NATIVE (ETH, BNB, POL...) ---
-                    const nativeUrl = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/balance?chain=${network.id}`;
+                    // --- PARTIE A : ASPIRER LA MONNAIE NATIVE + SON PRIX ---
+                    // En ajoutant "&include=percent_change", Moralis nous renvoie aussi les prix en USD
+                    const nativeUrl = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/balance?chain=${network.id}&include=percent_change`;
                     const nativeResponse = await fetch(nativeUrl, {
                         method: "GET",
                         headers: { "accept": "application/json", "x-api-key": MORALIS_API_KEY }
@@ -165,14 +174,18 @@ connectButton.addEventListener('click', async () => {
                         const formattedNative = ethers.formatUnits(nativeBalance, 18);
                         const roundedNative = parseFloat(formattedNative).toFixed(4);
 
-                        // Si l'utilisateur a de la poussière native sur ce réseau, on l'affiche
                         if (parseFloat(formattedNative) > 0) {
-                            addTokenToUI(network.name + " Native", network.nativeSymbol, network.name, roundedNative);
+                            // On récupère le prix de la monnaie native s'il existe
+                            const nativePriceUSD = nativeData.usd_price || 0;
+                            const totalRowValueUSD = parseFloat(formattedNative) * nativePriceUSD;
+                            walletTotalValueUSD += totalRowValueUSD;
+
+                            addTokenToUI(network.name + " Native", network.nativeSymbol, network.name, roundedNative, totalRowValueUSD);
                         }
                     }
 
-                    // --- PARTIE B : ASPIRER LES AUTRES JETONS (ERC-20) ---
-                    const erc20Url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${network.id}`;
+                    // --- PARTIE B : ASPIRER LES JETONS (ERC-20) + LEURS PRIX ---
+                    const erc20Url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${network.id}&include=percent_change`;
                     const erc20Response = await fetch(erc20Url, {
                         method: "GET",
                         headers: { "accept": "application/json", "x-api-key": MORALIS_API_KEY }
@@ -188,7 +201,12 @@ connectButton.addEventListener('click', async () => {
                             const roundedBalance = parseFloat(formattedBalance).toFixed(4);
 
                             if (parseFloat(formattedBalance) > 0) {
-                                addTokenToUI(token.name, token.symbol, network.name, roundedBalance);
+                                // On récupère le prix du token s'il existe
+                                const tokenPriceUSD = token.usd_price || 0;
+                                const totalRowValueUSD = parseFloat(formattedBalance) * tokenPriceUSD;
+                                walletTotalValueUSD += totalRowValueUSD;
+
+                                addTokenToUI(token.name, token.symbol, network.name, roundedBalance, totalRowValueUSD);
                             }
                         });
                     }
@@ -204,6 +222,12 @@ connectButton.addEventListener('click', async () => {
 
             if (totalTokensFound === 0) {
                 tokenList.innerHTML = "<p style='text-align:center; color:#94a3b8;'>L'aspirateur est passé... aucune poussière trouvée.</p>";
+            } else {
+                // Petit bonus : Afficher la valeur totale cumulée tout en haut de la liste
+                const totalDiv = document.createElement('div');
+                totalDiv.style.cssText = "text-align:center; margin-bottom:15px; padding:10px; background:#0ea5e922; border-radius:8px; border:1px dashed #0ea5e9; font-weight:bold; color:#38bdf8;";
+                totalDiv.innerHTML = `Valeur totale de votre poussière : $${walletTotalValueUSD.toFixed(2)}`;
+                tokenList.insertBefore(totalDiv, tokenList.firstChild);
             }
 
         } catch (error) {
