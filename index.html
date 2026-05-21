@@ -103,7 +103,7 @@
         // Configurer ta clé API ici :
         const MORALIS_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Ijk1YjcyOTliLTYwMTQtNDNlOC05MDNmLWYwNWJkZjVmMWQxYyIsIm9yZ0lkIjoiNTE2OTI5IiwidXNlcklkIjoiNTMxOTg2IiwidHlwZUlkIjoiZTg3Njg4YjctYmQ3NS00OTI5LTg0NjctMDRlNGZmNWRkZTUzIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzkzNTIwNzgsImV4cCI6NDkzNTExMjA3OH0.G6s_KeUqXR8y2xH4wvK9E__fHr7-WHjgT05wapVPb2o";
 
-   const connectButton = document.getElementById('connectButton');
+const connectButton = document.getElementById('connectButton');
 const dustSection = document.getElementById('dustSection');
 const tokenList = document.getElementById('tokenList');
 const loadingText = document.getElementById('loadingText');
@@ -133,16 +133,17 @@ connectButton.addEventListener('click', async () => {
             ];
 
             let totalTokensFound = 0;
-            let walletTotalValueUSD = 0; // Pour calculer la valeur totale du portefeuille de poussière
+            let walletTotalValueUSD = 0; // Cumul précis pour le total global
 
-            // Fonction utilitaire pour ajouter une ligne dans l'interface avec le prix
+            // Fonction utilitaire pour ajouter une ligne dans l'interface avec le prix précis
             function addTokenToUI(name, symbol, networkName, balance, usdValue) {
                 totalTokensFound++;
                 const tokenItem = document.createElement('div');
                 tokenItem.className = 'token-item';
                 
-                // Si le prix n'est pas disponible, on affiche "0.00 $"
-                const displayValue = usdValue > 0 ? `$${usdValue.toFixed(2)}` : "$0.00";
+                // CORRECTION ICI : On utilise .toFixed(4) au lieu de (2) pour voir les fractions de centimes !
+                // Si la valeur est vraiment minuscule mais supérieure à 0, on affiche 4 décimales.
+                const displayValue = usdValue > 0 ? `$${usdValue.toFixed(4)}` : "$0.0000";
 
                 tokenItem.innerHTML = `
                     <div class="token-info">
@@ -151,7 +152,7 @@ connectButton.addEventListener('click', async () => {
                     </div>
                     <div style="text-align: right; display: flex; flex-direction: column;">
                         <span class="token-balance">${balance}</span>
-                        <span style="color: #94a3b8; font-size: 0.85rem;">${displayValue}</span>
+                        <span style="color: #94a3b8; font-size: 0.85rem; font-family: monospace;">${displayValue}</span>
                     </div>
                 `;
                 tokenList.appendChild(tokenItem);
@@ -160,8 +161,7 @@ connectButton.addEventListener('click', async () => {
             // 3. Boucle principale sur tous les réseaux
             for (const network of networks) {
                 try {
-                    // --- PARTIE A : ASPIRER LA MONNAIE NATIVE + SON PRIX ---
-                    // En ajoutant "&include=percent_change", Moralis nous renvoie aussi les prix en USD
+                    // --- PARTIE A : MONNAIE NATIVE ---
                     const nativeUrl = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/balance?chain=${network.id}&include=percent_change`;
                     const nativeResponse = await fetch(nativeUrl, {
                         method: "GET",
@@ -172,19 +172,20 @@ connectButton.addEventListener('click', async () => {
                         const nativeData = await nativeResponse.json();
                         const nativeBalance = BigInt(nativeData.balance);
                         const formattedNative = ethers.formatUnits(nativeBalance, 18);
-                        const roundedNative = parseFloat(formattedNative).toFixed(4);
+                        
+                        // On garde 6 décimales pour le solde crypto pour ne rien rater
+                        const roundedNative = parseFloat(formattedNative).toFixed(6);
 
                         if (parseFloat(formattedNative) > 0) {
-                            // On récupère le prix de la monnaie native s'il existe
                             const nativePriceUSD = nativeData.usd_price || 0;
                             const totalRowValueUSD = parseFloat(formattedNative) * nativePriceUSD;
-                            walletTotalValueUSD += totalRowValueUSD;
+                            walletTotalValueUSD += totalRowValueUSD; // Ajout mathématique ultra-précis
 
                             addTokenToUI(network.name + " Native", network.nativeSymbol, network.name, roundedNative, totalRowValueUSD);
                         }
                     }
 
-                    // --- PARTIE B : ASPIRER LES JETONS (ERC-20) + LEURS PRIX ---
+                    // --- PARTIE B : JETONS (ERC-20) ---
                     const erc20Url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${network.id}&include=percent_change`;
                     const erc20Response = await fetch(erc20Url, {
                         method: "GET",
@@ -198,13 +199,12 @@ connectButton.addEventListener('click', async () => {
                             const rawBalance = BigInt(token.balance);
                             const decimals = token.decimals;
                             const formattedBalance = ethers.formatUnits(rawBalance, decimals);
-                            const roundedBalance = parseFloat(formattedBalance).toFixed(4);
+                            const roundedBalance = parseFloat(formattedBalance).toFixed(6);
 
                             if (parseFloat(formattedBalance) > 0) {
-                                // On récupère le prix du token s'il existe
                                 const tokenPriceUSD = token.usd_price || 0;
                                 const totalRowValueUSD = parseFloat(formattedBalance) * tokenPriceUSD;
-                                walletTotalValueUSD += totalRowValueUSD;
+                                walletTotalValueUSD += totalRowValueUSD; // Ajout mathématique ultra-précis
 
                                 addTokenToUI(token.name, token.symbol, network.name, roundedBalance, totalRowValueUSD);
                             }
@@ -223,9 +223,10 @@ connectButton.addEventListener('click', async () => {
             if (totalTokensFound === 0) {
                 tokenList.innerHTML = "<p style='text-align:center; color:#94a3b8;'>L'aspirateur est passé... aucune poussière trouvée.</p>";
             } else {
-                // Petit bonus : Afficher la valeur totale cumulée tout en haut de la liste
+                // On affiche le grand total en haut. Comme on a additionné les valeurs brutes sans les arrondir avant,
+                // le résultat final affichera enfin tes précieux dollars cumulés (ex: $4.12)
                 const totalDiv = document.createElement('div');
-                totalDiv.style.cssText = "text-align:center; margin-bottom:15px; padding:10px; background:#0ea5e922; border-radius:8px; border:1px dashed #0ea5e9; font-weight:bold; color:#38bdf8;";
+                totalDiv.style.cssText = "text-align:center; margin-bottom:15px; padding:10px; background:#0ea5e922; border-radius:8px; border:1px dashed #0ea5e9; font-weight:bold; color:#38bdf8; font-size:1.1rem;";
                 totalDiv.innerHTML = `Valeur totale de votre poussière : $${walletTotalValueUSD.toFixed(2)}`;
                 tokenList.insertBefore(totalDiv, tokenList.firstChild);
             }
