@@ -1,0 +1,47 @@
+body{
+    background:#0f172a;
+    color:white;
+    font-family:Arial;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+}
+
+.container{
+    width:420px;
+    background:#1e293b;
+    padding:25px;
+    border-radius:15px;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    margin-top:15px;
+    cursor:pointer;
+    font-weight:bold;
+}
+
+#connectButton{
+    background:#38bdf8;
+}
+
+#cleanButton{
+    background:#22c55e;
+}
+
+.token{
+    background:#0f172a;
+    padding:12px;
+    border-radius:10px;
+    margin-top:10px;
+    border:1px solid #334155;
+}
+
+.small{
+    color:#94a3b8;
+    font-size:12px;
+}
