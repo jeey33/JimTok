@@ -1,342 +1,40 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JimTok - Dust Swapper</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
-    
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #0f172a;
-            color: #f8fafc;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JiMToK Dust Cleaner</title>
 
-        .container {
-            text-align: center;
-            padding: 2rem;
-            background-color: #1e293b;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            max-width: 480px;
-            width: 100%;
-        }
+  <link rel="stylesheet" href="style.css">
 
-        h1 { color: #38bdf8; margin-bottom: 10px; }
-        p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }
-
-        .btn-connect, .btn-action {
-            color: #0f172a;
-            border: none;
-            padding: 14px 24px;
-            font-size: 1rem;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            width: 100%;
-            margin-top: 20px;
-        }
-        
-        .btn-connect { background-color: #38bdf8; }
-        .btn-connect:hover { background-color: #0ea5e9; transform: scale(1.01); }
-        
-        .btn-action { 
-            background-color: #eab308; 
-            display: none; /* Caché au début */
-        }
-        .btn-action:hover { background-color: #ca8a04; transform: scale(1.01); }
-        .btn-action:disabled { background-color: #64748b; color: #94a3b8; cursor: not-allowed; }
-
-        .dust-section {
-            margin-top: 25px;
-            text-align: left;
-            display: none;
-        }
-
-        h3 { color: #94a3b8; font-size: 1rem; border-bottom: 1px solid #334155; padding-bottom: 8px; margin-bottom: 15px; }
-
-        .token-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-bottom: 15px;
-        }
-
-        .token-item {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            background-color: #0f172a;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            border: 1px solid #334155;
-            cursor: pointer;
-        }
-
-        .token-checkbox {
-            margin-right: 15px;
-            transform: scale(1.3);
-            cursor: pointer;
-            accent-color: #38bdf8;
-        }
-
-        .token-info { display: flex; flex-direction: column; flex-grow: 1; }
-        .token-name { font-weight: bold; color: #f1f5f9; }
-        .token-symbol { font-size: 0.8rem; color: #64748b; }
-        .token-right { text-align: right; display: flex; flex-direction: column; }
-        .token-balance { font-family: monospace; color: #f8fafc; font-weight: bold; }
-        .token-usd { color: #34d399; font-size: 0.85rem; font-family: monospace; font-weight: bold; }
-        
-        .loading { text-align: center; color: #38bdf8; font-style: italic; margin-top: 15px; display: none; }
-        
-        .total-box {
-            text-align: center; 
-            margin-bottom: 15px; 
-            padding: 12px; 
-            background: #0ea5e911; 
-            border-radius: 8px; 
-            border: 1px dashed #0ea5e9; 
-            font-weight: bold; 
-            color: #38bdf8; 
-            font-size: 1rem;
-        }
-    </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
 </head>
 <body>
 
-    <div class="container">
-        <h1>JimTok</h1>
-        <p>Aspirateur de Crypto Dust. Sélectionnez les lignes à nettoyer pour obtenir du JimTok.</p>
-        
-        <button id="connectButton" class="btn-connect">Connecter mon Wallet</button>
-        <div id="loadingText" class="loading">Scan de vos portefeuilles en cours...</div>
-        
-        <div id="dustSection" class="dust-section">
-            <div id="totalDisplay" class="total-box">Sélectionnez de la poussière à aspirer</div>
-            <h3>Poussières détectées :</h3>
-            
-            <div id="tokenList" class="token-list"></div>
+<div class="container">
 
-            <button id="actionButton" class="btn-action">🧹 Passer l'aspirateur JimTok</button>
-        </div>
-    </div>
+    <h1>🧹 JiMToK</h1>
 
-    <script>
-        // === CONFIGURATION DE TES ADRESSES ET CLÉS ===
-        const MORALIS_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6Ijk1YjcyOTliLTYwMTQtNDNlOC05MDNmLWYwNWJkZjVmMWQxYyIsIm9yZ0lkIjoiNTE2OTI5IiwidXNlcklkIjoiNTMxOTg2IiwidHlwZUlkIjoiZTg3Njg4YjctYmQ3NS00OTI5LTg0NjctMDRlNGZmNWRkZTUzIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NzkzNTIwNzgsImV4cCI6NDkzNTExMjA3OH0.G6s_KeUqXR8y2xH4wvK9E__fHr7-WHjgT05wapVPb2o";
-        
-        // RECOPIE TON ADRESSE METAMASK ICI (Où arriveront les poussières)
-        const MON_ADRESSE_RECEPTION = "0xc5c28644a49B1AD2074188A2c92dE67467b65330"; 
-        
-        // RECOPIE L'ADRESSE DU CONTRAT DE TON JETON CRÉÉ SUR THIRDWEB ICI
-        const ADRESSE_CONTRAT_JIMTOK = "0xC8c75f020A9CCA652e9D2C2c13Fa3C7522D2626a";
+    <p>
+        Nettoyez vos poussières crypto inutiles
+        et recevez des JIM.
+    </p>
 
-        const connectButton = document.getElementById('connectButton');
-        const dustSection = document.getElementById('dustSection');
-        const tokenList = document.getElementById('tokenList');
-        const loadingText = document.getElementById('loadingText');
-        const totalDisplay = document.getElementById('totalDisplay');
-        const actionButton = document.getElementById('actionButton');
+    <button id="connectButton">
+        Connecter MetaMask
+    </button>
 
-        let selectedItems = []; 
-        let provider;
+    <div id="status"></div>
 
-        // Configuration enrichie des réseaux pris en charge
-        const networks = [
-            { id: "base", hexId: "0x2105", name: "Base", nativeSymbol: "ETH", defaultPrice: 3200 },
-            { id: "eth", hexId: "0x1", name: "Ethereum", nativeSymbol: "ETH", defaultPrice: 3200 },
-            { id: "polygon", hexId: "0x89", name: "Polygon", nativeSymbol: "POL", defaultPrice: 0.60 },
-            { id: "bsc", hexId: "0x38", name: "Binance Smart Chain", nativeSymbol: "BNB", defaultPrice: 580 },
-            { id: "arbitrum", hexId: "0xa4b1", name: "Arbitrum", nativeSymbol: "ETH", defaultPrice: 3200 },
-            { id: "optimism", hexId: "0xa", name: "Optimism", nativeSymbol: "ETH", defaultPrice: 3200 }
-        ];
+    <div id="dustContainer"></div>
 
-        connectButton.addEventListener('click', async () => {
-            if (typeof window.ethereum !== 'undefined') {
-                try {
-                    provider = new ethers.BrowserProvider(window.ethereum);
-                    const signer = await provider.getSigner();
-                    const walletAddress = await signer.getAddress();
-                    
-                    connectButton.innerText = "Wallet Connecté 🎉";
-                    connectButton.style.backgroundColor = "#34d399";
-                    connectButton.disabled = true;
-                    loadingText.style.display = "block";
-                    tokenList.innerHTML = ""; 
+    <button id="cleanButton" style="display:none;">
+        Convertir en JIM
+    </button>
 
-                    function addTokenToUI(name, symbol, networkName, balance, rawBalance, usdValue, contractAddress, isNative) {
-                        const tokenItem = document.createElement('div');
-                        tokenItem.className = 'token-item';
-                        
-                        let displayValue = usdValue > 0 ? (usdValue >= 1 ? `$${usdValue.toFixed(2)}` : `$${usdValue.toFixed(4)}`) : "Poussière";
-                        const uniqueId = `${networkName}-${symbol}-${contractAddress}`;
+</div>
 
-                        tokenItem.innerHTML = `
-                            <input type="checkbox" class="token-checkbox" data-id="${uniqueId}">
-                            <div class="token-info">
-                                <span class="token-name">${name}</span>
-                                <span class="token-symbol">${symbol} <small style="color:#64748b; font-size:11px;">(${networkName})</small></span>
-                            </div>
-                            <div class="token-right">
-                                <span class="token-balance">${balance}</span>
-                                <span class="token-usd">${displayValue}</span>
-                            </div>
-                        `;
+<script src="app.js"></script>
 
-                        const checkbox = tokenItem.querySelector('.token-checkbox');
-                        checkbox.addEventListener('change', (e) => {
-                            const tokenData = { uniqueId, name, symbol, networkName, balance, rawBalance, usdValue, contractAddress, isNative };
-                            if (e.target.checked) {
-                                selectedItems.push(tokenData);
-                            } else {
-                                selectedItems = selectedItems.filter(item => item.uniqueId !== uniqueId);
-                            }
-                            updateTotalDisplay();
-                        });
-
-                        tokenItem.addEventListener('click', (e) => {
-                            if (e.target !== checkbox) {
-                                checkbox.checked = !checkbox.checked;
-                                checkbox.dispatchEvent(new Event('change'));
-                            }
-                        });
-
-                        tokenList.appendChild(tokenItem);
-                    }
-
-                    function updateTotalDisplay() {
-                        if (selectedItems.length === 0) {
-                            totalDisplay.innerText = "Sélectionnez de la poussière à aspirer";
-                            actionButton.style.display = "none";
-                        } else {
-                            let totalUSD = selectedItems.reduce((sum, item) => sum + item.usdValue, 0);
-                            totalDisplay.innerHTML = `Lignes sélectionnées : <strong>${selectedItems.length}</strong> | Valeur estimée : <strong>$${totalUSD.toFixed(2)}</strong>`;
-                            actionButton.style.display = "block";
-                            actionButton.innerText = `🧹 Aspirer ${selectedItems.length} ligne(s) contre du JimTok`;
-                        }
-                    }
-
-                    // --- APPELS SCANNER MORALIS ---
-                    for (const network of networks) {
-                        try {
-                            // 1. Scan Monnaies Natives (ETH, BNB, POL...)
-                            const nativeResponse = await fetch(`https://deep-index.moralis.io/api/v2.2/${walletAddress}/balance?chain=${network.id}`, {
-                                method: "GET", headers: { "accept": "application/json", "x-api-key": MORALIS_API_KEY }
-                            });
-                            if (nativeResponse.ok) {
-                                const nativeData = await nativeResponse.json();
-                                const numNative = parseFloat(ethers.formatUnits(BigInt(nativeData.balance), 18));
-                                if (numNative > 0) {
-                                    let price = nativeData.usd_price || network.defaultPrice;
-                                    addTokenToUI(network.name + " Native", network.nativeSymbol, network.name, numNative.toFixed(6), nativeData.balance, (numNative * price), "0x000", true);
-                                }
-                            }
-
-                            // 2. Scan Jetons ERC-20 (Shitcoins, poussières...)
-                            const erc20Response = await fetch(`https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20?chain=${network.id}`, {
-                                method: "GET", headers: { "accept": "application/json", "x-api-key": MORALIS_API_KEY }
-                            });
-                            if (erc20Response.ok) {
-                                const tokens = await erc20Response.json();
-                                tokens.forEach(token => {
-                                    const numToken = parseFloat(ethers.formatUnits(BigInt(token.balance), token.decimals));
-                                    if (numToken > 0) {
-                                        addTokenToUI(token.name, token.symbol, network.name, numToken.toFixed(4), token.balance, (numToken * (token.usd_price || 0)), token.token_address, false);
-                                    }
-                                });
-                            }
-                        } catch (netError) { console.error(netError); }
-                    }
-
-                    loadingText.style.display = "none";
-                    dustSection.style.display = "block";
-
-                } catch (error) {
-                    console.error(error);
-                    loadingText.style.display = "none";
-                }
-            } else {
-                alert("Installez MetaMask !");
-            }
-        });
-
-        // --- ACTION DU BOUTON JAUNE : LE VRAI ASPIRATEUR FONCTIONNEL ---
-        actionButton.addEventListener('click', async () => {
-            actionButton.disabled = true;
-            
-            for (const item of selectedItems) {
-                try {
-                    totalDisplay.innerHTML = `⏳ Traitement de : <strong>${item.name}</strong> (${item.networkName})...`;
-                    
-                    // Trouver la configuration du réseau de cet élément
-                    const netConfig = networks.find(n => n.name === item.networkName);
-                    
-                    // S'assurer que le MetaMask de l'utilisateur est branché sur le bon réseau pour ce token
-                    const currentNetwork = await provider.getNetwork();
-                    if (window.ethereum && currentNetwork.chainId !== BigInt(netConfig.hexId)) {
-                        totalDisplay.innerHTML = `🔄 Basculement vers le réseau <strong>${item.networkName}</strong> requis...`;
-                        await window.ethereum.request({
-                            method: "wallet_switchEthereumChain",
-                            params: [{ chainId: netConfig.hexId }],
-                        });
-                        // Rafraîchir le provider suite au changement de chaîne
-                        provider = new ethers.BrowserProvider(window.ethereum);
-                    }
-                    
-                    const signer = await provider.getSigner();
-
-                    if (item.isNative) {
-                        // Cas A : Transfert de monnaie native (ETH, BNB, POL)
-                        // On calcule un montant de sécurité pour laisser de quoi payer les frais de gaz
-                        const rawBigInt = BigInt(item.rawBalance);
-                        const gasReserve = ethers.parseEther("0.0003"); // Réserve minimale pour les frais
-                        
-                        if (rawBigInt <= gasReserve) {
-                            alert(`Fonds natifs de ${item.name} trop faibles pour couvrir les frais de gaz de l'aspiration.`);
-                            continue; 
-                        }
-                        
-                        const amountToSend = rawBigInt - gasReserve;
-                        const tx = await signer.sendTransaction({
-                            to: MON_ADRESSE_RECEPTION,
-                            value: amountToSend
-                        });
-                        await tx.wait();
-                    } else {
-                        // Cas B : Transfert d'un jeton ERC-20
-                        const tokenContract = new ethers.Contract(
-                            item.contractAddress, 
-                            ["function transfer(address to, uint256 amount) returns (bool)"], 
-                            signer
-                        );
-                        const tx = await tokenContract.transfer(MON_ADRESSE_RECEPTION, BigInt(item.rawBalance));
-                        await tx.wait();
-                    }
-                    
-                } catch (txError) {
-                    console.error(`Échec de l'aspiration pour ${item.name}:`, txError);
-                    alert(`L'aspiration de ${item.name} a été refusée ou a échoué.`);
-                }
-            }
-
-            totalDisplay.innerHTML = "✨ <strong>Aspiration terminée avec succès !</strong> Vos $JIM vont être distribués.";
-            actionButton.style.display = "none";
-            selectedItems = [];
-            
-            // Note de fin : Ton mécanisme de backend distribuera les JIM à l'utilisateur ici.
-            alert("Aspiration terminée ! Vos poussières ont été transférées vers votre wallet de réception.");
-        });
-    </script>
 </body>
 </html>
-
-
