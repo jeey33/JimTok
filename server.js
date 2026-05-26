@@ -4,11 +4,29 @@ const cors = require("cors");
 const app = express();
 
 app.use(cors());
+app.use(express.json());
 
-const MORALIS_API_KEY =
-process.env.MORALIS_API_KEY;
+// ===============================
+// CLÉ MORALIS (Render Environment Variable)
+// ===============================
 
-app.get("/tokens/:wallet/:chain", async (req,res)=>{
+const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
+
+// ===============================
+// PAGE D'ACCUEIL
+// ===============================
+
+app.get("/", (req, res) => {
+
+    res.send("✅ JiMToK Backend Online");
+
+});
+
+// ===============================
+// ROUTE SCAN TOKENS
+// ===============================
+
+app.get("/tokens/:wallet/:chain", async (req, res) => {
 
     const wallet = req.params.wallet;
     const chain = req.params.chain;
@@ -16,27 +34,40 @@ app.get("/tokens/:wallet/:chain", async (req,res)=>{
     try {
 
         const response = await fetch(
-`https://deep-index.moralis.io/api/v2.2/${wallet}/erc20?chain=${chain}`,
-        {
-            headers:{
-                "X-API-Key": MORALIS_API_KEY
+            `https://deep-index.moralis.io/api/v2.2/${wallet}/erc20?chain=${chain}`,
+            {
+                method: "GET",
+                headers: {
+                    "accept": "application/json",
+                    "X-API-Key": MORALIS_API_KEY
+                }
             }
-        });
+        );
 
         const data = await response.json();
 
         res.json(data);
 
-    } catch(err){
+    } catch (err) {
+
+        console.error(err);
 
         res.status(500).json({
-            error:err.message
+            error: err.message
         });
 
     }
 
 });
 
-app.listen(3000, ()=>{
-    console.log("JiMToK backend running");
+// ===============================
+// LANCEMENT SERVEUR
+// ===============================
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+
+    console.log(`✅ JiMToK backend running on port ${PORT}`);
+
 });
