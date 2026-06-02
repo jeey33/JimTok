@@ -54,16 +54,14 @@ async function scanDust(wallet) {
                     const balance = Number(token.balance_formatted);
                     const usd = Number(token.usd_value || 0);
 
-                    if (
-                        balance > 0 &&
-                        usd < 10 &&
-                        token.possible_spam !== true
-                    ) {
-                        allTokens.push({
-                            ...token,
-                            chain: chain // On garde en mémoire de quelle blockchain vient ce jeton
-                        });
-                    }
+                    // PAR CELUI-CI :
+// On accepte TOUT dès que le solde est supérieur à zéro, peu importe le prix ou le spam
+if (balance > 0) {
+    allTokens.push({
+        ...token,
+        chain: chain
+    });
+}
                 });
             }
         } catch(err) {
