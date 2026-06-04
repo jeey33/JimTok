@@ -30,8 +30,7 @@ app.get("/tokens/:wallet/base", async (req, res) => {
                     id: 1,
                     method: "alchemy_getTokenBalances",
                     params: [
-                        wallet,
-                        "DEFAULT_TOKENS"
+                        wallet
                     ]
                 })
             }
