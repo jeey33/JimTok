@@ -37,7 +37,7 @@ app.get("/tokens/:wallet/base", async (req, res) => {
         );
 
         const data = await response.json();
-
+console.log(JSON.stringify(data, nulln 2));
         res.json(data);
 
     } catch (err) {
