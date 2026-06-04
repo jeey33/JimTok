@@ -6,41 +6,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ===============================
-// CLÉ MORALIS (Render Environment Variable)
-// ===============================
-
-const MORALIS_API_KEY = process.env.MORALIS_API_KEY;
-
-// ===============================
-// PAGE D'ACCUEIL
-// ===============================
+const ALCHEMY_API_KEY = process.env.ALCHEMY_API_KEY;
 
 app.get("/", (req, res) => {
-
     res.send("✅ JiMToK Backend Online");
-
 });
 
-// ===============================
-// ROUTE SCAN TOKENS
-// ===============================
-
-app.get("/tokens/:wallet/:chain", async (req, res) => {
+app.get("/tokens/:wallet/base", async (req, res) => {
 
     const wallet = req.params.wallet;
-    const chain = req.params.chain;
 
     try {
 
         const response = await fetch(
-            `https://deep-index.moralis.io/api/v2.2/${wallet}/erc20?chain=${chain}`,
+            `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
             {
-                method: "GET",
+                method: "POST",
                 headers: {
-                    "accept": "application/json",
-                    "X-API-Key": MORALIS_API_KEY
-                }
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    id: 1,
+                    method: "alchemy_getTokenBalances",
+                    params: [
+                        wallet,
+                        "DEFAULT_TOKENS"
+                    ]
+                })
             }
         );
 
@@ -60,14 +53,8 @@ app.get("/tokens/:wallet/:chain", async (req, res) => {
 
 });
 
-// ===============================
-// LANCEMENT SERVEUR
-// ===============================
-
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-
     console.log(`✅ JiMToK backend running on port ${PORT}`);
-
 });
