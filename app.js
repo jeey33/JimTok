@@ -48,7 +48,7 @@ async function scanDust(wallet) {
             );
             const tokens = await response.json();
 
-            console.log(tokens);
+            console.log("Réponse backend :", tokens);
             
             // Vérification que l'API renvoie bien un tableau valide
             if (tokens && Array.isArray(tokens)) {
