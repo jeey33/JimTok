@@ -38,40 +38,56 @@ connectButton.onclick = async () => {
 };
 
 async function scanDust(wallet) {
-    dustContainer.innerHTML = "🔍 Scan des poussières sur toutes les chaînes...";
-    let allTokens = [];
 
-    for (const chain of NETWORKS) {
-        try {
-            const response = await fetch(
-                `https://jimtok-backend.onrender.com/tokens/${wallet}/${chain}`
-            );
-            const tokens = await response.json();
+    dustContainer.innerHTML = "🔍 Scan des tokens...";
 
-            console.log("Réponse backend :", tokens);
-            
-            // Vérification que l'API renvoie bien un tableau valide
-            if (tokens && Array.isArray(tokens)) {
-                tokens.forEach(token => {
-                    const balance = Number(token.balance_formatted);
-                    const usd = Number(token.usd_value || 0);
+    try {
 
-                    // PAR CELUI-CI :
-// On accepte TOUT dès que le solde est supérieur à zéro, peu importe le prix ou le spam
-if (balance > 0) {
-    allTokens.push({
-        ...token,
-        chain: chain
-    });
-}
-                });
-            }
-        } catch(err) {
-            console.log("Erreur lors du scan de la chaîne " + chain + ":", err);
+        const response = await fetch(
+            `https://jimtok-backend.onrender.com/tokens/${wallet}/base`
+        );
+
+        const data = await response.json();
+
+        console.log(data);
+
+        dustContainer.innerHTML = "";
+
+        if (
+            !data.result ||
+            !data.result.tokenBalances ||
+            data.result.tokenBalances.length === 0
+        ) {
+            dustContainer.innerHTML = "Aucun token détecté";
+            return;
         }
+
+        data.result.tokenBalances.forEach(token => {
+
+            const div = document.createElement("div");
+
+            div.className = "token";
+
+            div.innerHTML = `
+                <strong>${token.contractAddress}</strong>
+                <div class="small">
+                    ${token.tokenBalance}
+                </div>
+            `;
+
+            dustContainer.appendChild(div);
+
+        });
+
+    } catch(err) {
+
+        console.log(err);
+
+        dustContainer.innerHTML =
+        "Erreur lors du scan.";
+
     }
 
-    renderTokens(allTokens);
 }
 
 function renderTokens(tokens) {
