@@ -39,7 +39,7 @@ connectButton.onclick = async () => {
 
 async function scanDust(wallet) {
 
-    dustContainer.innerHTML = "🔍 Scan des tokens...";
+    dustContainer.innerHTML = "🔍 Scan des poussières...";
 
     try {
 
@@ -51,80 +51,37 @@ async function scanDust(wallet) {
 
         console.log(data);
 
-        dustContainer.innerHTML = "";
+        const tokens = data.result.tokenBalances;
 
-        if (
-            !data.result ||
-            !data.result.tokenBalances ||
-            data.result.tokenBalances.length === 0
-        ) {
-            dustContainer.innerHTML = "Aucun token détecté";
-            return;
-        }
-
-        data.result.tokenBalances.forEach(token => {
-
-            const div = document.createElement("div");
-
-            div.className = "token";
-
-            div.innerHTML = `
-                <strong>${token.contractAddress}</strong>
-                <div class="small">
-                    ${token.tokenBalance}
-                </div>
-            `;
-
-            dustContainer.appendChild(div);
-
-        });
+        renderTokens(tokens);
 
     } catch(err) {
 
         console.log(err);
 
-        dustContainer.innerHTML =
-        "Erreur lors du scan.";
+        dustContainer.innerHTML = "Erreur scan";
 
     }
-
 }
-
 function renderTokens(tokens) {
+
     dustContainer.innerHTML = "";
 
-    if (tokens.length === 0) {
-        dustContainer.innerHTML = "Aucune poussière détectée.";
-        return;
-    }
-
     tokens.forEach(token => {
+
         const div = document.createElement("div");
+
         div.className = "token";
-        // Ajout du nom de la blockchain à côté du symbole pour que l'utilisateur comprenne
+
         div.innerHTML = `
-            <input type="checkbox" />
-            <strong>${token.symbol}</strong> <span style="font-size:10px; color:gray;">(${token.chain.toUpperCase()})</span>
+            <strong>${token.contractAddress}</strong>
             <div class="small">
-                ${token.balance_formatted}
-                ≈ $${Number(token.usd_value || 0).toFixed(2)}
+                ${token.tokenBalance}
             </div>
         `;
 
-        const checkbox = div.querySelector("input");
-
-        checkbox.addEventListener("change", e => {
-            if (e.target.checked) {
-                selectedTokens.push(token);
-            } else {
-                selectedTokens = selectedTokens.filter(
-                    t => !(t.token_address === token.token_address && t.chain === token.chain)
-                );
-            }
-            updateButton();
-        });
-
         dustContainer.appendChild(div);
+
     });
 }
 
