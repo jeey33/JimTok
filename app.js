@@ -59,14 +59,17 @@ async function scanDust(wallet) {
 
             try {
                 // Création d'une connexion rapide avec le contrat du jeton pour lui demander son nom et ses décimales
-                const tokenContract = new ethers.Contract(
-                    token.contractAddress,
-                    [
-                        "function symbol() view returns (string)",
-                        "function decimals() view returns (uint8)"
-                    ],
-                    provider
-                );
+                // CORRECTION : On force la lecture sur le réseau Base pour trouver les noms
+const baseRpcProvider = new ethers.JsonRpcProvider("https://mainnet.base.org");
+
+const tokenContract = new ethers.Contract(
+    token.contractAddress,
+    [
+        "function symbol() view returns (string)",
+        "function decimals() view returns (uint8)"
+    ],
+    baseRpcProvider // <--- Remplacé par baseRpcProvider
+);
 
                 // On récupère le symbole et les décimales (souvent 18 ou 6)
                 const [symbol, decimals] = await Promise.all([
