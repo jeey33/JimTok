@@ -59,16 +59,14 @@ async function scanDust(wallet) {
 
             try {
                 // Création d'une connexion rapide avec le contrat du jeton pour lui demander son nom et ses décimales
-                // CORRECTION : On force la lecture sur le réseau Base pour trouver les noms
-const baseRpcProvider = new ethers.JsonRpcProvider("https://mainnet.base.org");
-
+// Création d'une connexion rapide avec le contrat...
 const tokenContract = new ethers.Contract(
     token.contractAddress,
     [
         "function symbol() view returns (string)",
         "function decimals() view returns (uint8)"
     ],
-    baseRpcProvider // <--- Remplacé par baseRpcProvider
+    provider // <--- C'est ce "provider" qui dépend du réglage de MetaMask
 );
 
                 // On récupère le symbole et les décimales (souvent 18 ou 6)
